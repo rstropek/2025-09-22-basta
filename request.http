@@ -7,5 +7,13 @@ POST https://localhost:7210/conversations/{{conversation.response.body.$.convers
 Content-Type: application/json
 
 {
-  "message": "I need flowers."
+  "message": "Which flowers do you offer?"
+}
+
+###
+POST https://localhost:7210/conversations/{{conversation.response.body.$.conversationId}}/chat
+Content-Type: application/json
+
+{
+  "message": "Roses are great. For which occasion do you recommend them?"
 }

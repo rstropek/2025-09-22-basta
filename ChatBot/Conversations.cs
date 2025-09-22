@@ -22,7 +22,7 @@ public static class ConversationsEndpoints
     }
 
     public async static Task<IResult> Chat(IConversationRepository context,
-        ActivitySource source, int conversationId,
+        ActivitySource source, int conversationId, OpenAIManager openAIManager,
         NewMessageRequest request, CancellationToken cancellationToken)
     {
         using (var span = source.StartActivity("Add message to conversation"))
@@ -39,15 +39,7 @@ public static class ConversationsEndpoints
             }
         }
 
-        return TypedResults.ServerSentEvents(GetValues(), "textDelta");
-    }
-
-    public async static IAsyncEnumerable<string> GetValues()
-    {
-        await Task.Delay(1000);
-        yield return "Hello ";
-        await Task.Delay(1000);
-        yield return "World!";
+        return TypedResults.ServerSentEvents(openAIManager.GetAssistantStreaming(conversationId, cancellationToken), "textDelta");
     }
 
     public async static Task<Created<NewConversationResponse>> AddConversation(ApplicationDataContext context)

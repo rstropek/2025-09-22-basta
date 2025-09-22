@@ -16,4 +16,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="developer-message.md" />
+  </ItemGroup>
 </Project>
