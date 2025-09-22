@@ -2,6 +2,8 @@ using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using ChatBotDb;
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
 using OpenAI.Responses;
 
 namespace ChatBot;
@@ -12,11 +14,25 @@ public class OpenAIManager(OpenAIResponseClient client,
 {
     private string? developerMessage = null;
 
+    private FunctionTool[]? mcpTools = null;
+
     public async IAsyncEnumerable<AssistantResponseMessage> GetAssistantStreaming(
         int conversationId, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         // Get conversation history from DB
         var conversation = await context.GetConversation(conversationId);
+
+        // Get tools provided by MCP server
+        IMcpClient? mcpClient = null;
+        if (mcpTools == null)
+        {
+            mcpClient = await GetMcpClient();
+            mcpTools = await mcpClient.ListFunctionTools();
+            if (mcpTools.Length == 0)
+            {
+                throw new InvalidOperationException("MCP server offers no tools, this should never happen");
+            }
+        }
 
         bool requiresAction;
         do
@@ -55,10 +71,19 @@ public class OpenAIManager(OpenAIResponseClient client,
                                 functionResult = new FunctionCallOutputResponseItem(functionCall.CallId, availableColorsJson);
                                 break;
                             default:
-                                functionResult = new FunctionCallOutputResponseItem(
-                                    functionCall.CallId,
-                                    "Function not recognized."
-                                );
+                                var mcpTool = mcpTools!.FirstOrDefault(t => t.FunctionName == functionCall.FunctionName);
+                                if (mcpTool != null)
+                                {
+                                    mcpClient ??= await GetMcpClient();
+                                    var functionArguments = JsonSerializer.Deserialize<Dictionary<string, object?>>(functionCall.FunctionArguments)!;
+                                    var callResult = await mcpClient.CallToolAsync(functionCall.FunctionName, functionArguments);
+                                    functionResult = new FunctionCallOutputResponseItem(functionCall.CallId, (callResult.Content[0] as TextContentBlock)?.Text ?? "");
+                                }
+                                else
+                                {
+                                    functionResult = new FunctionCallOutputResponseItem(functionCall.CallId, "Function not found");
+                                }
+
                                 break;
                         }
 
@@ -86,6 +111,10 @@ public class OpenAIManager(OpenAIResponseClient client,
             StoredOutputEnabled = false
         };
         options.Tools.Add(ProductsTools.GetAvailableColorsForFlowerTool);
+        foreach (var tool in mcpTools!)
+        {
+            options.Tools.Add(tool);
+        }
 
         return options;
     }
@@ -101,5 +130,37 @@ public class OpenAIManager(OpenAIResponseClient client,
         return await reader.ReadToEndAsync();
     }
 
+    private async Task<IMcpClient> GetMcpClient()
+    {
+        // Note that the names of these classes will change in the near future.
+        // They have already been change in the GitHub repo, but not yet in the NuGet package.
+        var transport = new SseClientTransport(new()
+        {
+            Endpoint = new Uri(config["Services:cart-mcp:http:0"]!),
+            Name = "Shopping Cart MCP"
+        }, loggerFactory);
+        return await McpClientFactory.CreateAsync(transport, loggerFactory: loggerFactory);
+    }
+
     public record AssistantResponseMessage(string DeltaText);
+}
+
+
+public static class McpClientToolExtensions
+{
+    extension(McpClientTool t)
+    {
+        public FunctionTool ToFunctionTool() => ResponseTool.CreateFunctionTool(
+            functionName: t.Name,
+            functionDescription: t.Description,
+            functionParameters: BinaryData.FromString(
+                t.JsonSchema.GetRawText()),
+            strictModeEnabled: false);
+    }
+
+    extension(IMcpClient mcpClient)
+    {
+        public async Task<FunctionTool[]> ListFunctionTools() =>
+            [.. (await mcpClient.ListToolsAsync()).Select(t => t.ToFunctionTool())];
+    }
 }

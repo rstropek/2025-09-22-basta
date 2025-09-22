@@ -7,7 +7,7 @@ POST https://localhost:7210/conversations/{{conversation.response.body.$.convers
 Content-Type: application/json
 
 {
-  "message": "Which colors do you have for roses?"
+  "message": "Do you have roses in red? If so, please add a large bouquet of red roses to my cart and tell me the reference number for my order."
 }
 
 ###
