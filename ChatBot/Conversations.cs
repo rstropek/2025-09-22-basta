@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using ChatBotDb;
 using Microsoft.AspNetCore.Http.HttpResults;
 using OpenAI.Responses;
@@ -14,9 +15,31 @@ public static class ConversationsEndpoints
 
             // Add routes here
             api.MapPost("/", AddConversation);
+            api.MapPost("/{conversationId}/chat", Chat);
 
             return app;
         }
+    }
+
+    public async static Task<IResult> Chat(IConversationRepository context,
+        ActivitySource source, int conversationId,
+        NewMessageRequest request, CancellationToken cancellationToken)
+    {
+        using (var span = source.StartActivity("Add message to conversation"))
+        {
+            try
+            {
+                var userMessage = ResponseItem.CreateUserMessageItem(request.Message);
+                await context.AddResponseToConversation(conversationId, userMessage);
+            }
+            catch (ConversionNotFoundException)
+            {
+                span?.SetStatus(ActivityStatusCode.Error, "Conversation not found");
+                return Results.NotFound();
+            }
+        }
+
+        return Results.Ok();
     }
 
     public async static Task<Created<NewConversationResponse>> AddConversation(ApplicationDataContext context)
@@ -28,6 +51,9 @@ public static class ConversationsEndpoints
     }
 
     public record NewConversationResponse(int ConversationId);
+
+    public record NewMessageRequest(string Message);
+    public record NewMessageResponse(int MessageId);
 
     // public static async Task<IResult> TryOpenAI(IConfiguration config)
     // {

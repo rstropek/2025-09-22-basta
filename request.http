@@ -1,1 +1,11 @@
+###
+# @name conversation
 POST https://localhost:7210/conversations
+
+###
+POST https://localhost:7210/conversations/{{conversation.response.body.$.conversationId}}/chat
+Content-Type: application/json
+
+{
+  "message": "I need flowers."
+}
