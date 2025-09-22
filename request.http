@@ -7,7 +7,7 @@ POST https://localhost:7210/conversations/{{conversation.response.body.$.convers
 Content-Type: application/json
 
 {
-  "message": "Which flowers do you offer?"
+  "message": "Which colors do you have for roses?"
 }
 
 ###

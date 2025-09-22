@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using ChatBotDb;
 using OpenAI.Responses;
 
@@ -17,27 +18,58 @@ public class OpenAIManager(OpenAIResponseClient client,
         // Get conversation history from DB
         var conversation = await context.GetConversation(conversationId);
 
-        var options = await GetResponseCreationOptions();
-        var response = client.CreateResponseStreamingAsync(conversation, options, cancellationToken);
-
-        await foreach (var chunk in response)
+        bool requiresAction;
+        do
         {
-            if (cancellationToken.IsCancellationRequested) { break; }
+            requiresAction = false;
 
-            if (chunk is StreamingResponseOutputTextDeltaUpdate textDelta)
+            var options = await GetResponseCreationOptions();
+            var response = client.CreateResponseStreamingAsync(conversation, options, cancellationToken);
+
+            await foreach (var chunk in response)
             {
-                yield return new AssistantResponseMessage(textDelta.Delta);
-            }
+                if (cancellationToken.IsCancellationRequested) { break; }
 
-            if (chunk is StreamingResponseOutputItemDoneUpdate doneUpdate
-                && doneUpdate.Item is not ReasoningResponseItem)
-            {
-                await context.AddResponseToConversation(conversationId, doneUpdate.Item);
-                conversation.Add(doneUpdate.Item);
+                if (chunk is StreamingResponseOutputTextDeltaUpdate textDelta)
+                {
+                    yield return new AssistantResponseMessage(textDelta.Delta);
+                }
 
-                // Ist das ein Function Call? Wenn ja, dann führe die Funktion aus
+                if (chunk is StreamingResponseOutputItemDoneUpdate doneUpdate
+                    && doneUpdate.Item is not ReasoningResponseItem)
+                {
+                    await context.AddResponseToConversation(conversationId, doneUpdate.Item);
+                    conversation.Add(doneUpdate.Item);
+
+                    if (doneUpdate.Item is FunctionCallResponseItem functionCall)
+                    {
+                        requiresAction = true;
+                        FunctionCallOutputResponseItem functionResult;
+
+                        switch (functionCall.FunctionName)
+                        {
+                            case nameof(ProductsTools.GetAvailableColorsForFlower):
+                                var argument = JsonSerializer.Deserialize<ProductsTools.GetAvailableColorsForFlowerRequest>(functionCall.FunctionArguments)!;
+                                var availableColors = ProductsTools.GetAvailableColorsForFlower(argument);
+                                var availableColorsJson = JsonSerializer.Serialize(availableColors);
+                                functionResult = new FunctionCallOutputResponseItem(functionCall.CallId, availableColorsJson);
+                                break;
+                            default:
+                                functionResult = new FunctionCallOutputResponseItem(
+                                    functionCall.CallId,
+                                    "Function not recognized."
+                                );
+                                break;
+                        }
+
+                        await context.AddResponseToConversation(conversationId, functionResult);
+                        conversation.Add(functionResult);
+                    }
+
+                }
             }
         }
+        while (requiresAction);
     }
 
     private async Task<ResponseCreationOptions> GetResponseCreationOptions()
