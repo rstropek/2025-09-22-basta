@@ -13,7 +13,7 @@ public static class ConversationsEndpoints
             var api = app.MapGroup("/conversations");
 
             // Add routes here
-            api.MapGet("/", AddConversation);
+            api.MapPost("/", AddConversation);
 
             return app;
         }
