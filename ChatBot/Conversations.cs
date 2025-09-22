@@ -39,7 +39,15 @@ public static class ConversationsEndpoints
             }
         }
 
-        return Results.Ok();
+        return TypedResults.ServerSentEvents(GetValues(), "textDelta");
+    }
+
+    public async static IAsyncEnumerable<string> GetValues()
+    {
+        await Task.Delay(1000);
+        yield return "Hello ";
+        await Task.Delay(1000);
+        yield return "World!";
     }
 
     public async static Task<Created<NewConversationResponse>> AddConversation(ApplicationDataContext context)
