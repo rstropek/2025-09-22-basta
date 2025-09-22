@@ -34,19 +34,11 @@ public class OpenAIManager(OpenAIResponseClient client,
             {
                 await context.AddResponseToConversation(conversationId, doneUpdate.Item);
                 conversation.Add(doneUpdate.Item);
+
+                // Ist das ein Function Call? Wenn ja, dann führe die Funktion aus
             }
         }
     }
-
-
-
-
-
-
-
-
-
-
 
     private async Task<ResponseCreationOptions> GetResponseCreationOptions()
     {
@@ -61,6 +53,7 @@ public class OpenAIManager(OpenAIResponseClient client,
             MaxOutputTokenCount = 2500,
             StoredOutputEnabled = false
         };
+        options.Tools.Add(ProductsTools.GetAvailableColorsForFlowerTool);
 
         return options;
     }
