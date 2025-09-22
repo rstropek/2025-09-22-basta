@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flower Shop Chatbot 💐</title>
+</head>
+<body>
+    <div class="chatbot-container">
+        <header class="chatbot-header">
+            <h1>Flower Shop Assistant 💐</h1>
+            <p>Ask me about flowers, colors, and shopping!</p>
+        </header>
+        
+        <div class="conversation-history" id="conversation-history">
+            <div class="welcome-message">
+                <div class="message assistant-message">
+                    <div class="message-content">
+                        Welcome! I'm your flower shop assistant. How can I help you today?
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="input-container">
+            <input 
+                type="text" 
+                id="message-input" 
+                placeholder="Type your message here..." 
+                autocomplete="off"
+            />
+            <button id="send-button">Send</button>
+        </div>
+        
+        <div class="status" id="status"></div>
+    </div>
+    
+    <script type="module" src="./src/index.js"></script>
+</body>
+</html>

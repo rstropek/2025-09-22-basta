@@ -19,9 +19,16 @@ builder.Services.AddSingleton(_ => new OpenAIResponseClient(
     builder.Configuration["OPENAI_MODEL"],
     builder.Configuration["OPENAI_API_KEY"]));
 
+builder.Services.AddCors();
+
 var app = builder.Build();
 
 await app.Services.ApplyMigrations();
+
+app.UseCors(policy => policy
+    .AllowAnyOrigin()
+    .AllowAnyHeader()
+    .AllowAnyMethod());
 
 app.MapConversationsEndpoints();
 
